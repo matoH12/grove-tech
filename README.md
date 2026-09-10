@@ -145,6 +145,11 @@ zdieľaný disk hosta.
 
 ### Reštart a perzistencia
 
-Po OOM kille sa vrátil **rovnaký kontajner** (`hostname` nezmenený) do 2 s
-a súbory zapísané pred pádom prežili. cgroup počítadlá sa pritom vynulovali,
-takže reštartuje sa celý kontajner, nielen proces.
+**Reštart po páde:** vráti sa **rovnaký kontajner** (`hostname` nezmenený) do 2 s
+a súbory zapísané pred pádom prežijú. cgroup počítadlá sa pritom vynulujú,
+takže sa reštartuje celý kontajner, nie len proces.
+
+**Redeploy (git push):** vytvorí sa **nový kontajner** (hostname `f36cf39ecd02` →
+`cea3655f7eb8`) a všetko zapísané zmizne — marker v `/app/data` aj v `/tmp` bol po
+redeployi `ENOENT`. Zápis na disk je teda použiteľný len ako cache v rámci jedného
+nasadenia; čokoľvek, čo má prežiť deploy, patrí do databázy alebo externého úložiska.
