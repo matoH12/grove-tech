@@ -7,126 +7,312 @@
 <style>
   :root {
     --bg: #f6f7f5; --card: #ffffff; --ink: #1a1f1c; --muted: #61706a;
-    --line: #e2e6e1; --accent: #2f7d4f; --accent-soft: #e8f3ec; --bad: #b4453a;
+    --line: #e2e6e1; --accent: #2f7d4f; --accent-soft: #e8f3ec;
+    --bad: #b4453a; --bad-soft: #fbeceb; --warn: #9a6b1f; --code: #f1f3ef;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #12150f; --card: #1b1f19; --ink: #e9ede7; --muted: #99a69e;
-      --line: #2c332a; --accent: #6cc48a; --accent-soft: #1f2d24; --bad: #e08074;
+      --line: #2c332a; --accent: #6cc48a; --accent-soft: #1f2d24;
+      --bad: #e08074; --bad-soft: #2e1e1c; --warn: #d3a75f; --code: #161a14;
     }
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 32px 20px; background: var(--bg); color: var(--ink);
+    margin: 0; padding: 32px 20px 64px; background: var(--bg); color: var(--ink);
     font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  .wrap { max-width: 720px; margin: 0 auto; }
-  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
   .sub { color: var(--muted); margin: 0 0 24px; }
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    padding: 20px; margin-bottom: 16px;
+    padding: 18px 20px; margin-bottom: 14px;
   }
   .pill {
     display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
     border-radius: 999px; background: var(--accent-soft); color: var(--accent);
     font-weight: 600; font-size: 14px;
   }
+  .pill.err { background: var(--bad-soft); color: var(--bad); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
-       color: var(--muted); margin: 0 0 12px; font-weight: 600; }
-  dl { display: grid; grid-template-columns: minmax(120px, auto) 1fr; gap: 8px 16px; margin: 0; }
-  dt { color: var(--muted); }
-  dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-       font-size: 13px; word-break: break-all; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .tile .k { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .tile .v { font-size: 19px; font-weight: 650; margin-top: 4px; letter-spacing: -0.01em;
+             overflow-wrap: anywhere; }
+  .tile .n { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .bar { height: 5px; border-radius: 3px; background: var(--line); margin-top: 8px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
+  details > summary {
+    cursor: pointer; padding: 14px 20px; font-weight: 600; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::after { content: '+'; color: var(--muted); font-weight: 400; font-size: 18px; }
+  details[open] > summary::after { content: '−'; }
+  details > summary:hover { color: var(--accent); }
+  .body { padding: 0 20px 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  td { padding: 5px 10px 5px 0; vertical-align: top; border-top: 1px solid var(--line); }
+  tr:first-child td { border-top: none; }
+  td.k { color: var(--muted); white-space: nowrap; width: 1%; padding-right: 20px; }
+  td.v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  .nest { margin: 4px 0 4px 0; border-left: 2px solid var(--line); padding-left: 12px; }
+  .nest > .label { font-size: 12px; color: var(--muted); margin: 8px 0 2px; font-weight: 600; }
+  .null { color: var(--muted); font-style: italic; }
+  .true { color: var(--accent); font-weight: 600; }
+  .false { color: var(--bad); font-weight: 600; }
+  pre {
+    background: var(--code); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; overflow-x: auto; font-size: 12px; margin: 4px 0;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
   button {
-    font: inherit; font-weight: 600; padding: 9px 16px; border-radius: 8px;
+    font: inherit; font-weight: 600; font-size: 14px; padding: 8px 14px; border-radius: 8px;
     border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer;
   }
   button:hover { border-color: var(--accent); color: var(--accent); }
-  pre {
-    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
-    padding: 12px; overflow-x: auto; font-size: 12px; margin: 12px 0 0;
-  }
-  .err { color: var(--bad); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .warn { color: var(--warn); }
+  a { color: var(--accent); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>grove-tech · testovacia appka</h1>
-  <p class="sub">Overuje, ci GroveCloud hosting spravne postavil, spustil a vystavil aplikaciu.</p>
+  <h1>grove-tech · diagnostika kontajnera</h1>
+  <p class="sub">Vypíše všetko, čo aplikácia zvnútra kontajnera GroveCloud zistí o svojom prostredí.</p>
 
   <div class="card">
-    <span class="pill" id="status"><span class="dot"></span><span id="status-text">Nacitavam…</span></span>
+    <span class="pill" id="status"><span class="dot"></span><span id="status-text">Načítavam…</span></span>
+    <div class="note" id="status-note"></div>
   </div>
 
-  <div class="card">
-    <h2>Behove prostredie</h2>
-    <dl id="info"><dt>…</dt><dd>nacitavam</dd></dl>
-  </div>
+  <div class="tiles" id="tiles"></div>
+  <div style="height:14px"></div>
+
+  <div id="sections"></div>
 
   <div class="card">
-    <h2>Premenne prostredia (APP_*)</h2>
-    <dl id="env"><dt>…</dt><dd>nacitavam</dd></dl>
-  </div>
-
-  <div class="card">
-    <h2>Test POST /api/echo</h2>
-    <button id="echo">Odoslat testovaci JSON</button>
-    <pre id="echo-out" hidden></pre>
+    <h2 style="font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px">Živé testy</h2>
+    <div class="actions">
+      <button id="btn-refresh">Obnoviť dáta</button>
+      <button id="btn-echo">POST /api/echo</button>
+      <button id="btn-stress">Zaťažiť CPU 500 ms</button>
+      <button id="btn-raw">Zobraziť surové JSON</button>
+    </div>
+    <pre id="out" hidden></pre>
   </div>
 </div>
 
 <script>
-  const fill = (el, obj) => {
-    el.innerHTML = '';
-    const entries = Object.entries(obj);
-    if (!entries.length) {
-      el.innerHTML = '<dt>—</dt><dd>ziadne nastavene</dd>';
-      return;
-    }
-    for (const [k, v] of entries) {
-      const dt = document.createElement('dt');
-      dt.textContent = k;
-      const dd = document.createElement('dd');
-      dd.textContent = typeof v === 'object' ? JSON.stringify(v) : String(v);
-      el.append(dt, dd);
-    }
-  };
+const fmtBytes = (n) => {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return null;
+  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0, v = n;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return (v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)) + ' ' + u[i];
+};
 
-  fetch('/api/info')
-    .then(r => r.json())
-    .then(d => {
-      document.getElementById('status-text').textContent = 'Aplikacia bezi · ' + d.message;
-      fill(document.getElementById('info'), {
-        'Node': d.node, 'Platforma': d.platform, 'Hostname': d.hostname,
-        'Port': d.port, 'Protokol': d.proto, 'Klient IP': d.clientIp,
-        'Spustena': d.startedAt, 'Uptime (s)': d.uptimeSeconds, 'Cas servera': d.now,
-        'Stage': d.stage,
-      });
-      fill(document.getElementById('env'), d.appEnv);
-    })
-    .catch(e => {
-      const s = document.getElementById('status');
-      s.classList.add('err');
-      document.getElementById('status-text').textContent = 'Chyba: ' + e.message;
+const fmtDuration = (s) => {
+  if (typeof s !== 'number') return null;
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600);
+  const m = Math.floor(s % 3600 / 60), sec = Math.round(s % 60);
+  if (d) return `${d}d ${h}h ${m}m`;
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${sec}s`;
+  return `${sec}s`;
+};
+
+// Rekurzivne vykreslenie lubovolne zanorenych dat do tabulky.
+function renderValue(value) {
+  if (value === null || value === undefined) {
+    const s = document.createElement('span');
+    s.className = 'null'; s.textContent = '—';
+    return s;
+  }
+  if (typeof value === 'boolean') {
+    const s = document.createElement('span');
+    s.className = value ? 'true' : 'false';
+    s.textContent = value ? 'áno' : 'nie';
+    return s;
+  }
+  if (typeof value === 'string') {
+    if (value.includes('\n')) {
+      const pre = document.createElement('pre');
+      pre.textContent = value;
+      return pre;
+    }
+    return document.createTextNode(value);
+  }
+  if (typeof value === 'number') {
+    return document.createTextNode(String(value));
+  }
+  if (Array.isArray(value)) {
+    if (!value.length) {
+      const s = document.createElement('span');
+      s.className = 'null'; s.textContent = 'prázdne';
+      return s;
+    }
+    if (value.every((v) => typeof v !== 'object' || v === null)) {
+      const pre = document.createElement('pre');
+      pre.textContent = value.join(value.length > 12 ? '  ' : ', ');
+      return pre;
+    }
+    const box = document.createElement('div');
+    box.className = 'nest';
+    value.forEach((item, i) => {
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = '#' + i;
+      box.appendChild(label);
+      box.appendChild(renderValue(item));
     });
+    return box;
+  }
+  // objekt
+  const table = document.createElement('table');
+  for (const [k, v] of Object.entries(value)) {
+    const tr = document.createElement('tr');
+    const tdK = document.createElement('td');
+    tdK.className = 'k'; tdK.textContent = k;
+    const tdV = document.createElement('td');
+    tdV.className = 'v'; tdV.appendChild(renderValue(v));
+    tr.append(tdK, tdV);
+    table.appendChild(tr);
+  }
+  return table;
+}
 
-  document.getElementById('echo').addEventListener('click', async () => {
-    const out = document.getElementById('echo-out');
-    out.hidden = false;
-    out.textContent = 'Odosielam…';
-    try {
-      const r = await fetch('/api/echo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test: true, odoslane: new Date().toISOString() }),
-      });
-      out.textContent = JSON.stringify(await r.json(), null, 2);
-    } catch (e) {
-      out.textContent = 'Chyba: ' + e.message;
+const SECTION_LABELS = {
+  container: 'Kontajner — detekcia runtime',
+  limits: 'Limity kontajnera (cgroup)',
+  runtime: 'Node.js runtime',
+  system: 'Operačný systém a proces',
+  cpu: 'Procesor',
+  disk: 'Disky, mounty a zápis',
+  network: 'Sieť a DNS',
+  env: 'Premenné prostredia',
+  request: 'HTTP požiadavka a proxy',
+  app: 'Aplikácia',
+};
+
+function renderTiles(d) {
+  const mem = d.limits.memory;
+  const rootDisk = d.disk.filesystems['/'] || {};
+  const tiles = [
+    { k: 'Runtime', v: d.container.runtime, n: d.container.detected ? 'kontajner zistený' : 'bez kontajnera' },
+    { k: 'Hostname', v: d.system.hostname, n: d.container.containerIdGuess ? 'vyzerá ako ID kontajnera' : '' },
+    { k: 'CPU limit', v: d.limits.cpu.limitCores ? d.limits.cpu.limitCores + ' jadra' : 'bez limitu',
+      n: 'host má ' + d.limits.cpu.hostCores + ' jadier' },
+    { k: 'Pamäť', v: mem.limitBytes ? fmtBytes(mem.usageBytes) + ' / ' + fmtBytes(mem.limitBytes) : fmtBytes(mem.hostTotalBytes),
+      n: mem.limitBytes ? 'využitie ' + mem.usagePercent + ' %' : 'bez cgroup limitu',
+      pct: mem.usagePercent },
+    { k: 'Disk /', v: rootDisk.totalBytes ? fmtBytes(rootDisk.freeBytes) + ' voľné' : '—',
+      n: rootDisk.totalBytes ? 'z ' + fmtBytes(rootDisk.totalBytes) : '', pct: rootDisk.usedPercent },
+    { k: 'Node', v: d.runtime.node, n: d.system.platform + ' ' + d.system.arch },
+    { k: 'Uptime appky', v: fmtDuration(d.app.uptimeSeconds), n: 'port ' + d.app.listenPort },
+    { k: 'Protokol', v: d.request.protocolFromProxy || d.request.protocolSeenByApp,
+      n: d.request.tlsTerminatedByProxy ? 'TLS ukončené na proxy' : 'priame spojenie' },
+  ];
+  const box = document.getElementById('tiles');
+  box.innerHTML = '';
+  for (const t of tiles) {
+    const el = document.createElement('div');
+    el.className = 'tile';
+    const k = document.createElement('div'); k.className = 'k'; k.textContent = t.k;
+    const v = document.createElement('div'); v.className = 'v'; v.textContent = t.v ?? '—';
+    el.append(k, v);
+    if (t.n) { const n = document.createElement('div'); n.className = 'n'; n.textContent = t.n; el.appendChild(n); }
+    if (typeof t.pct === 'number') {
+      const bar = document.createElement('div'); bar.className = 'bar';
+      const i = document.createElement('i'); i.style.width = Math.min(t.pct, 100) + '%';
+      if (t.pct > 85) i.style.background = 'var(--bad)';
+      bar.appendChild(i); el.appendChild(bar);
     }
+    box.appendChild(el);
+  }
+}
+
+function renderSections(d) {
+  const box = document.getElementById('sections');
+  box.innerHTML = '';
+  const order = ['container', 'limits', 'request', 'env', 'system', 'runtime', 'cpu', 'disk', 'network', 'app'];
+  for (const key of order) {
+    if (!(key in d)) continue;
+    const det = document.createElement('details');
+    if (key === 'container' || key === 'limits') det.open = true;
+    const sum = document.createElement('summary');
+    sum.textContent = SECTION_LABELS[key] || key;
+    const body = document.createElement('div');
+    body.className = 'body';
+    body.appendChild(renderValue(d[key]));
+    det.append(sum, body);
+    box.appendChild(det);
+  }
+}
+
+let lastData = null;
+
+async function load() {
+  const status = document.getElementById('status');
+  const text = document.getElementById('status-text');
+  const note = document.getElementById('status-note');
+  try {
+    const res = await fetch('/api/info', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    lastData = d;
+    status.classList.remove('err');
+    text.textContent = 'Aplikácia beží · ' + d.app.message;
+    note.textContent = 'Dáta zozbierané ' + new Date(d.generatedAt).toLocaleString('sk-SK') +
+      ' · stage: ' + d.app.stage;
+    note.className = 'note';
+    if (d.env.revealAllEnabled) {
+      note.className = 'note warn';
+      note.textContent += ' · POZOR: DIAG_SHOW_ALL_ENV je zapnuté, všetky premenné sú verejné';
+    }
+    renderTiles(d);
+    renderSections(d);
+  } catch (err) {
+    status.classList.add('err');
+    text.textContent = 'Chyba: ' + err.message;
+  }
+}
+
+const out = document.getElementById('out');
+const show = (v) => { out.hidden = false; out.textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2); };
+
+document.getElementById('btn-refresh').addEventListener('click', load);
+
+document.getElementById('btn-echo').addEventListener('click', async () => {
+  show('Odosielam…');
+  const r = await fetch('/api/echo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ test: true, odoslane: new Date().toISOString() }),
   });
+  show(await r.json());
+});
+
+document.getElementById('btn-stress').addEventListener('click', async () => {
+  show('Zaťažujem CPU…');
+  const t0 = performance.now();
+  const r = await fetch('/api/stress?ms=500');
+  const data = await r.json();
+  data.realnyCasOdpovedeMs = Math.round(performance.now() - t0);
+  show(data);
+});
+
+document.getElementById('btn-raw').addEventListener('click', () => {
+  if (out.hidden === false && out.dataset.mode === 'raw') { out.hidden = true; out.dataset.mode = ''; return; }
+  out.dataset.mode = 'raw';
+  show(lastData || 'Zatiaľ žiadne dáta');
+});
+
+load();
 </script>
 </body>
 </html>

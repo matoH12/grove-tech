@@ -28,16 +28,44 @@ port, premenné prostredia, statické súbory aj API (GET + POST).
 
 | Endpoint | Popis |
 |---|---|
-| `GET /` | HTML stránka so stavom nasadenia (volá `/api/info`) |
+| `GET /` | Dashboard s kompletnou diagnostikou kontajnera |
 | `GET /health` | Health check pre platformu — `{"status":"ok"}` |
-| `GET /api/info` | Node verzia, hostname, port, uptime, protokol, `APP_*` premenné |
+| `GET /api/info` | **Všetko, čo sa dá zistiť** o kontajneri a prostredí (sekcie nižšie) |
+| `GET /api/info/:sekcia` | Jedna sekcia, napr. `/api/info/limits`, `/api/info/network` |
+| `GET /api/request` | Hlavičky a údaje o požiadavke tak, ako prídu cez reverznú proxy |
 | `POST /api/echo` | Vráti odoslané JSON telo — test POST cez proxy |
+| `GET /api/stress?ms=500` | Krátka CPU záťaž — overí, či cgroup limity reálne platia |
+
+### Sekcie v `/api/info`
+
+| Sekcia | Čo obsahuje |
+|---|---|
+| `container` | Detekcia runtime (Docker / Podman / Kubernetes / LXC), `/.dockerenv`, `/proc/1/cgroup`, PID 1, overlayfs, odhad ID kontajnera |
+| `limits` | cgroup v1/v2 limity: CPU kvóta a prepočet na jadrá, pamäťový limit a aktuálne využitie, swap, PID limit, počet vlákien |
+| `runtime` | Node a všetky `process.versions` (V8, OpenSSL, libuv…), `execPath`, argv, cwd, PID/PPID, timezone, locale, `resourceUsage`, `memoryUsage` |
+| `system` | Hostname, kernel (`uname -a`), `/etc/os-release`, machine-id, uptime hosta, loadavg, používateľ, UID/GID/skupiny, `/proc/self/limits` (ulimity), `/proc/self/status` |
+| `cpu` | Model, počet jadier, frekvencia, CPU flagy, časy jednotlivých jadier, `availableParallelism` |
+| `disk` | `statfs` pre `/`, app adresár a `/tmp` (veľkosť, voľné, inody), zoznam mountov, výpis `/` a app adresára, test zapisovateľnosti |
+| `network` | Všetky sieťové rozhrania a adresy, DNS servery, `/etc/resolv.conf`, `/etc/hosts`, FQDN |
+| `env` | Počet premenných, **všetky kľúče**, hodnoty (maskované — viď nižšie), samostatne `APP_*` |
+| `request` | Metóda, HTTP verzia, `X-Forwarded-*`, IP klienta, lokálny/vzdialený port, či TLS ukončuje proxy, **všetky hlavičky** |
+
+### Bezpečnosť výpisu premenných
+
+Appka beží na verejnej URL bez prihlásenia, takže hodnoty premenných sú **maskované**:
+kľúče vidno vždy, hodnoty len pre neutrálne premenné (`APP_*`, `NODE_*`, `PATH`, `PORT`…).
+Čokoľvek s `secret`, `token`, `key`, `password`, `auth` a podobne sa nahradí `«skryté, N znakov»`.
+
+Ak chceš vidieť úplne všetko, nastav `DIAG_SHOW_ALL_ENV=1` — appka na to upozorní v logu
+aj na stránke. Po teste to zase vypni, inak sú prípadné tokeny verejné.
 
 ## Ako to overiť po nasadení
 
 ```bash
 curl https://grove-tech.grovecloud.cz/health
-curl https://grove-tech.grovecloud.cz/api/info
+curl -s https://grove-tech.grovecloud.cz/api/info | jq .          # všetko
+curl -s https://grove-tech.grovecloud.cz/api/info/limits | jq .   # len limity kontajnera
+curl -s https://grove-tech.grovecloud.cz/api/info/container | jq .
 curl -X POST https://grove-tech.grovecloud.cz/api/echo \
   -H 'Content-Type: application/json' -d '{"ahoj":"svet"}'
 ```
