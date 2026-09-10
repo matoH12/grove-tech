@@ -103,3 +103,48 @@ npm install
 PORT=3000 APP_MESSAGE="Ahoj lokálne" npm start
 # → http://localhost:3000
 ```
+
+## Namerané na GroveCloud (10. 9. 2026)
+
+Tarif: **0,75 jadra CPU, 768 MB RAM**, Docker + cgroup v2, Alpine 3.23, Node 20.20.2.
+
+### CPU kvóta
+
+`cpu.max = 75000/100000`. Pri trvalej záťaži appka dostane **0,72–0,75 jadra**
+a kernel ju škrtí v **29 z 32** stoms period (0,71 s uspaného času z 3,2 s).
+Žiadny burst kredit — krátke špičky nedostanú viac než trvalá záťaž.
+
+### Pamäťový limit
+
+`memory.max = 768 MB`, bez `memory.high` (žiadne mäkké brzdenie).
+Alokácia rástla plynulo až po **756 MB (98,4 %)**, ďalších 16 MB proces **zabilo**
+bez akejkoľvek chyby v aplikácii — čistý OOM kill. Aplikácia bola späť **do 2 sekúnd**.
+
+Pozor na interpretáciu `memory.current`: pri zápise na disk vyskočí na 100 %,
+lebo cgroup si účtuje aj page cache. Pri teste to nastalo 13 103-krát
+(`memory.events.max`), ale `oom_kill` zostalo 0 — cache je zahoditeľná.
+**100 % využitia pamäte teda neznamená, že appka ide spadnúť.**
+
+### Disk
+
+`/` je overlayfs nad containerd, **žiadny perzistentný zväzok**, `/tmp` nie je tmpfs
+(zápis ide na disk, nie do RAM). `/dev/shm` má len 64 MB.
+`statfs` hlási 37,2 GB / 32,2 GB voľných — to je disk hosta, nie kvóta kontajnera.
+
+| Test | Priepustnosť |
+|---|---|
+| Zápis 64 MB + fsync | 338 MB/s |
+| Zápis 256 MB + fsync | 535 MB/s |
+| Zápis 1 GB + fsync | 767 MB/s |
+| Zápis 1 GB bez fsync | 779 MB/s |
+| Čítanie 1 GB | 283 MB/s |
+
+Voľné miesto ubúdalo presne 1:1 so zapísanými dátami a po zmazaní sa vrátilo.
+Do 2,5 GB sa neprejavila žiadna kvóta — nad to som netlačil, lebo je to
+zdieľaný disk hosta.
+
+### Reštart a perzistencia
+
+Po OOM kille sa vrátil **rovnaký kontajner** (`hostname` nezmenený) do 2 s
+a súbory zapísané pred pádom prežili. cgroup počítadlá sa pritom vynulovali,
+takže reštartuje sa celý kontajner, nielen proces.
