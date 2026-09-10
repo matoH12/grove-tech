@@ -103,6 +103,41 @@
       <button id="btn-stress">Zaťažiť CPU 500 ms</button>
       <button id="btn-raw">Zobraziť surové JSON</button>
     </div>
+
+    <h2 style="font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:20px 0 8px">
+      Test pamäťového limitu
+    </h2>
+    <div class="actions">
+      <button data-alloc="64">+64 MB</button>
+      <button data-alloc="256">+256 MB</button>
+      <button id="btn-ramp">Rampa po 64 MB až k limitu</button>
+      <button id="btn-release">Uvoľniť pamäť</button>
+    </div>
+    <div class="bar" style="margin-top:12px"><i id="mem-bar" style="width:0%"></i></div>
+    <div class="note" id="mem-note">—</div>
+
+    <h2 style="font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:20px 0 8px">
+      Test disku
+    </h2>
+    <div class="actions">
+      <button data-write="64">Zapísať 64 MB</button>
+      <button data-write="512">Zapísať 512 MB</button>
+      <button data-write="2048">Zapísať 2 GB</button>
+      <button id="btn-disk-list">Vypísať súbory</button>
+      <button id="btn-disk-clean">Zmazať testovacie súbory</button>
+    </div>
+    <div class="note" id="disk-note">Zapisuje sa do <code>./data</code> v app adresári.</div>
+
+    <h2 style="font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:20px 0 8px">
+      Perzistencia a reštart
+    </h2>
+    <div class="actions">
+      <button id="btn-marker-write">Zapísať marker</button>
+      <button id="btn-marker-read">Prečítať marker</button>
+      <button id="btn-crash" style="border-color:var(--bad);color:var(--bad)">Zhodiť proces</button>
+    </div>
+    <div class="note">Marker prežije reštart len s perzistentným diskom. „Zhodiť proces" overí, či appku platforma nahodí späť.</div>
+
     <pre id="out" hidden></pre>
   </div>
 </div>
@@ -304,6 +339,86 @@ document.getElementById('btn-stress').addEventListener('click', async () => {
   const data = await r.json();
   data.realnyCasOdpovedeMs = Math.round(performance.now() - t0);
   show(data);
+});
+
+// --- testy limitov ---
+// Token sa da pridat cez ?token=… v adrese stranky, ak je DIAG_TOKEN nastaveny.
+const token = new URLSearchParams(location.search).get('token');
+const q = (extra) => (token ? (extra ? extra + '&' : '?') + 'token=' + encodeURIComponent(token) : extra || '');
+const api = (path, params) => fetch(path + q(params)).then((r) => r.json());
+
+function updateMem(snapshot) {
+  const bar = document.getElementById('mem-bar');
+  const note = document.getElementById('mem-note');
+  const pct = snapshot.cgroupUsagePercent;
+  bar.style.width = Math.min(pct || 0, 100) + '%';
+  bar.style.background = pct > 85 ? 'var(--bad)' : 'var(--accent)';
+  note.textContent =
+    'cgroup: ' + fmtBytes(snapshot.cgroupUsageBytes) + ' / ' +
+    (snapshot.cgroupLimitBytes ? fmtBytes(snapshot.cgroupLimitBytes) : 'bez limitu') +
+    ' (' + pct + ' %) · RSS ' + fmtBytes(snapshot.processRssBytes) +
+    ' · držané bloky: ' + snapshot.heldBlocks + ' (' + fmtBytes(snapshot.heldBytes) + ')' +
+    (snapshot.cgroupEvents ? ' · OOM udalostí: ' + (snapshot.cgroupEvents.oom_kill ?? '—') : '');
+}
+
+document.querySelectorAll('[data-alloc]').forEach((b) =>
+  b.addEventListener('click', async () => {
+    show('Alokujem ' + b.dataset.alloc + ' MB…');
+    const d = await api('/api/test/memory/alloc', '?mb=' + b.dataset.alloc);
+    updateMem(d.after);
+    show(d);
+  })
+);
+
+document.getElementById('btn-ramp').addEventListener('click', async () => {
+  show('Spúšťam rampu…');
+  const log = [];
+  for (let i = 0; i < 40; i++) {
+    let d;
+    try {
+      d = await api('/api/test/memory/alloc', '?mb=64');
+    } catch (err) {
+      log.push('krok ' + (i + 1) + ': appka neodpovedala — pravdepodobne OOM kill');
+      break;
+    }
+    updateMem(d.after);
+    log.push(
+      'krok ' + (i + 1) + ': držané ' + fmtBytes(d.after.heldBytes) +
+      ' · cgroup ' + fmtBytes(d.after.cgroupUsageBytes) + ' (' + d.after.cgroupUsagePercent + ' %)' +
+      (d.error ? ' · CHYBA: ' + d.error.message : '')
+    );
+    show(log.join('\n'));
+    if (d.error) break;
+    if (d.after.cgroupUsagePercent > 97) { log.push('zastavené tesne pod limitom'); show(log.join('\n')); break; }
+  }
+});
+
+document.getElementById('btn-release').addEventListener('click', async () => {
+  const d = await api('/api/test/memory/release');
+  updateMem(d.after);
+  show(d);
+});
+
+document.querySelectorAll('[data-write]').forEach((b) =>
+  b.addEventListener('click', async () => {
+    show('Zapisujem ' + b.dataset.write + ' MB…');
+    const d = await api('/api/test/disk/write', '?mb=' + b.dataset.write);
+    document.getElementById('disk-note').textContent = d.error
+      ? 'Zápis zlyhal: ' + d.error.code + ' — ' + d.error.message
+      : 'Zapísané ' + fmtBytes(d.writtenBytes) + ' za ' + d.seconds + ' s = ' + d.throughputMbPerSec +
+        ' MB/s · voľné po zápise: ' + fmtBytes(d.diskAfter.freeBytes);
+    show(d);
+  })
+);
+
+document.getElementById('btn-disk-list').addEventListener('click', async () => show(await api('/api/test/disk')));
+document.getElementById('btn-disk-clean').addEventListener('click', async () => show(await api('/api/test/disk/cleanup')));
+document.getElementById('btn-marker-write').addEventListener('click', async () => show(await api('/api/test/marker/write')));
+document.getElementById('btn-marker-read').addEventListener('click', async () => show(await api('/api/test/marker/read')));
+
+document.getElementById('btn-crash').addEventListener('click', async () => {
+  if (!confirm('Naozaj zhodiť proces aplikácie? Overí to, či ju platforma nahodí späť.')) return;
+  show(await api('/api/test/crash').catch((e) => 'Proces spadol: ' + e.message));
 });
 
 document.getElementById('btn-raw').addEventListener('click', () => {

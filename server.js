@@ -2,12 +2,15 @@ const express = require('express');
 const os = require('os');
 const path = require('path');
 const diag = require('./lib/diag');
+const limitsTest = require('./lib/limits-test');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const STARTED_AT = new Date();
 // Pozor: zapina vypis vsetkych env premennych vratane tajnych na verejnej URL.
 const SHOW_ALL_ENV = /^(1|true|yes)$/i.test(process.env.DIAG_SHOW_ALL_ENV || '');
+// Ak je nastaveny, destruktivne testy (pamat, zapis, restart) vyzaduju ?token=
+const DIAG_TOKEN = process.env.DIAG_TOKEN || null;
 
 app.set('trust proxy', true);
 app.use(express.json());
@@ -63,12 +66,74 @@ app.get('/api/stress', (req, res) => {
   });
 });
 
+// --- Testy limitov kontajnera ---------------------------------------------
+// Su oddelene, lebo vedia appku zhodit alebo zaplnit disk.
+
+function guard(req, res, next) {
+  if (!DIAG_TOKEN) return next();
+  const token = req.query.token || req.headers['x-diag-token'];
+  if (token === DIAG_TOKEN) return next();
+  res.status(403).json({ error: 'chyba alebo nesedi token', hint: 'pridaj ?token=… alebo hlavicku X-Diag-Token' });
+}
+
+const testRouter = express.Router();
+testRouter.use(guard);
+
+testRouter.get('/memory', (req, res) => {
+  res.json(limitsTest.memorySnapshot());
+});
+
+// Alokuje a dotkne sa pamate; opakovanim sa da dojst az k OOM killu.
+testRouter.get('/memory/alloc', (req, res) => {
+  res.json(limitsTest.allocate(req.query.mb || 64));
+});
+
+testRouter.get('/memory/release', (req, res) => {
+  res.json(limitsTest.release());
+});
+
+testRouter.get('/disk', (req, res) => {
+  limitsTest.listTestFiles().then((data) => res.json(data), (err) => res.status(500).json({ error: err.message }));
+});
+
+// ?mb=100&target=app|tmp&fsync=0
+testRouter.get('/disk/write', (req, res) => {
+  const fsync = !/^(0|false|no)$/i.test(req.query.fsync || '');
+  limitsTest
+    .writeFile(req.query.target === 'tmp' ? 'tmp' : 'app', req.query.mb || 64, { fsync })
+    .then((data) => res.json(data), (err) => res.status(500).json({ error: err.message }));
+});
+
+testRouter.get('/disk/read', (req, res) => {
+  if (!req.query.file) return res.status(400).json({ error: 'chyba parameter file' });
+  limitsTest.readBack(req.query.file).then((data) => res.json(data), (err) => res.status(500).json({ error: err.message }));
+});
+
+testRouter.get('/disk/cleanup', (req, res) => {
+  limitsTest.cleanup().then((data) => res.json(data), (err) => res.status(500).json({ error: err.message }));
+});
+
+// Overenie, ci disk prezije restart kontajnera
+testRouter.get('/marker/:action(write|read)', (req, res) => {
+  limitsTest.marker(req.params.action).then((data) => res.json(data), (err) => res.status(500).json({ error: err.message }));
+});
+
+// Cisty pad procesu - ukaze, ci platforma appku sama nahodi spat
+testRouter.get('/crash', (req, res) => {
+  const code = Number(req.query.code) || 1;
+  res.json({ crashing: true, exitCode: code, pid: process.pid, at: new Date().toISOString() });
+  setTimeout(() => process.exit(code), 100);
+});
+
+app.use('/api/test', testRouter);
+
 app.use((req, res) => {
   res.status(404).json({ error: 'not found', path: req.path });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`grove-tech-test bezi na porte ${PORT}`);
+  console.log(DIAG_TOKEN ? 'Testy limitov su chranene tokenom.' : 'Testy limitov su OTVORENE (nastav DIAG_TOKEN).');
   if (SHOW_ALL_ENV) {
     console.warn('POZOR: DIAG_SHOW_ALL_ENV je zapnute, /api/info vypise vsetky premenne prostredia.');
   }

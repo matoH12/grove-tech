@@ -50,6 +50,26 @@ port, premenné prostredia, statické súbory aj API (GET + POST).
 | `env` | Počet premenných, **všetky kľúče**, hodnoty (maskované — viď nižšie), samostatne `APP_*` |
 | `request` | Metóda, HTTP verzia, `X-Forwarded-*`, IP klienta, lokálny/vzdialený port, či TLS ukončuje proxy, **všetky hlavičky** |
 
+### Testy limitov kontajnera (`/api/test/*`)
+
+Tieto endpointy vedia aplikáciu zhodiť alebo zaplniť disk — preto sú oddelené.
+Ak nastavíš `DIAG_TOKEN`, vyžadujú `?token=…` (alebo hlavičku `X-Diag-Token`).
+Bez neho sú otvorené, takže na verejnej URL ho nastav.
+
+| Endpoint | Popis |
+|---|---|
+| `GET /api/test/memory` | Aktuálne cgroup využitie, RSS, heap, V8 heap limit, OOM počítadlá |
+| `GET /api/test/memory/alloc?mb=64` | Alokuje a **dotkne sa** N MB (Buffer, mimo V8 heapu) — opakovaním až k OOM |
+| `GET /api/test/memory/release` | Uvoľní všetky držané bloky |
+| `GET /api/test/disk/write?mb=512&target=app\|tmp&fsync=0` | Zapíše súbor po 8 MB blokoch, zmeria priepustnosť a voľné miesto pred/po |
+| `GET /api/test/disk/read?file=…` | Prečíta súbor späť a zmeria rýchlosť čítania |
+| `GET /api/test/disk` | Vypíše testovacie súbory a stav diskov |
+| `GET /api/test/disk/cleanup` | Zmaže všetky `zapis-test-*` súbory |
+| `GET /api/test/marker/write` a `/read` | Marker pre overenie, či disk prežije reštart |
+| `GET /api/test/crash` | Čistý pád procesu — overí, či platforma appku nahodí späť |
+
+Stropy: alokácia max 1200 MB naraz, zápis max 8 GB na súbor.
+
 ### Bezpečnosť výpisu premenných
 
 Appka beží na verejnej URL bez prihlásenia, takže hodnoty premenných sú **maskované**:
