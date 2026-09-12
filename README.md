@@ -104,6 +104,25 @@ PORT=3000 APP_MESSAGE="Ahoj lokálne" npm start
 # → http://localhost:3000
 ```
 
+## Commerce API (referenčný cieľ pre bezpečnostné testovanie)
+
+Okrem diagnostiky appka vystavuje REST API `/api/v1` s demo dátami dvoch
+zákazníkov (`acme`, `globex`) a servisného operátora.
+
+| Adresa | Obsah |
+|---|---|
+| `/docs` | Swagger UI |
+| `/openapi.json` | OpenAPI 3.0 spec (importovateľný do skenerov) |
+| `/api/v1/status` | Stav služby |
+| `/api/v1/maintenance/reseed` | Obnovenie demo dát do východzieho stavu |
+
+Testovacie účty: `alice@acme.test` / `Alpha#2024`, `bob@globex.test` / `Bravo#2024`,
+`admin@grove.test` / `S3rvice!Admin`.
+
+> Toto API je **zámerne zraniteľný cieľ** na overovanie WAF-u a bezpečnostných
+> skenerov. Nenasadzuj ho vedľa produkčných dát a nedávaj doň nič skutočné.
+> Zoznam zabudovaných slabín a payloady sú v [EXPLOITS.md](EXPLOITS.md).
+
 ## Namerané na GroveCloud (10. 9. 2026)
 
 Tarif: **0,75 jadra CPU, 768 MB RAM**, Docker + cgroup v2, Alpine 3.23, Node 20.20.2.

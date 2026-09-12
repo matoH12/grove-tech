@@ -1,8 +1,13 @@
 const express = require('express');
 const os = require('os');
 const path = require('path');
+const cookieParser = require('cookie-parser');
+const swaggerUi = require('swagger-ui-express');
 const diag = require('./lib/diag');
 const limitsTest = require('./lib/limits-test');
+const labDb = require('./lib/lab/db');
+const labRoutes = require('./lib/lab/routes');
+const openapi = require('./lib/lab/openapi');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,10 +18,39 @@ const SHOW_ALL_ENV = /^(1|true|yes)$/i.test(process.env.DIAG_SHOW_ALL_ENV || '')
 const DIAG_TOKEN = process.env.DIAG_TOKEN || null;
 
 app.set('trust proxy', true);
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const diagOptions = () => ({ startedAt: STARTED_AT, port: PORT, showAllEnv: SHOW_ALL_ENV });
+
+// --- Commerce API a jeho dokumentacia ---------------------------------------
+
+let labReady = false;
+let labError = null;
+
+app.get('/openapi.json', (req, res) => res.json(openapi));
+
+app.use(
+  '/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(openapi, {
+    customSiteTitle: 'Grove Tech Commerce API',
+    swaggerOptions: { persistAuthorization: true, displayRequestDuration: true, tryItOutEnabled: true },
+  })
+);
+
+app.use(
+  '/api/v1',
+  (req, res, next) => {
+    if (labReady) return next();
+    res.status(503).json({
+      error: 'service_starting',
+      message: labError ? `Databaza sa nepodarila inicializovat: ${labError}` : 'Sluzba sa spusta, skuste o chvilu.',
+    });
+  },
+  labRoutes
+);
 
 // Health check - platforma si tymto overuje, ze appka zije
 app.get('/health', (req, res) => {
@@ -130,6 +164,17 @@ app.use('/api/test', testRouter);
 app.use((req, res) => {
   res.status(404).json({ error: 'not found', path: req.path });
 });
+
+labDb
+  .init()
+  .then(() => {
+    labReady = true;
+    console.log('Commerce API pripravene, dokumentacia na /docs');
+  })
+  .catch((err) => {
+    labError = err.message;
+    console.error('Inicializacia databazy zlyhala:', err.message);
+  });
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`grove-tech-test bezi na porte ${PORT}`);
